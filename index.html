@@ -1288,6 +1288,7 @@ html[data-theme="light"] .btn-anomalia{
   <button class="tab"    id="tabList" onclick="gTab('pgList')">LISTA <span class="nbadge" id="nbadge" style="display:none">0</span></button>
   <button class="tab"    id="tabAno"  onclick="gTab('pgAno')">ANOMALIE</button>
   <button class="tab"    id="tabMag"  onclick="gTab('pgMag')">MAGAZZINO</button>
+  <button class="tab"    id="tabGia"  onclick="gTab('pgGia')">GIACENZE</button>
   <button class="tab"    id="tabUbi"  onclick="gTab('pgUbi')">LOGISTICA</button>
   <button class="tab"    id="tabTri"  onclick="gTab('pgTri')">PREGRESSO</button>
   <button class="tab"    id="tabHist" onclick="gTab('pgHist')">RESOCONTO</button>
@@ -1544,6 +1545,9 @@ html[data-theme="light"] .btn-anomalia{
 
 <!-- ═══ LOGISTICA (UBICAZIONI + LOGISTICA fornitori/corrieri + FOTO PACCO) ═══ -->
 <div class="pg" id="pgMag" style="display:none"></div>
+
+<!-- ═══ GIACENZE — la merce: codici, prezzi, quantita. Non e la lista dei resi ═══ -->
+<div class="pg" id="pgGia" style="display:none"></div>
 
 <div class="pg" id="pgUbi" style="display:none">
 
@@ -3505,8 +3509,8 @@ function setDataContatto() {
 // NAVIGATION
 // ══════════════════════════════════════════════════
 function gTab(pg) {
-  var all=['pgIns','pgList','pgAno','pgMag','pgUbi','pgTri','pgHist','pgNotif','pgPortale','pgCon'];
-  var tabs=['tabIns','tabList','tabAno','tabMag','tabUbi','tabTri','tabHist','tabNotif','tabPortale','tabCon'];
+  var all=['pgIns','pgList','pgAno','pgMag','pgGia','pgUbi','pgTri','pgHist','pgNotif','pgPortale','pgCon'];
+  var tabs=['tabIns','tabList','tabAno','tabMag','tabGia','tabUbi','tabTri','tabHist','tabNotif','tabPortale','tabCon'];
   // Blocco accesso a tab non permessi al ruolo corrente
   var perms = (typeof ROLE_PERMS!=='undefined' && ROLE_PERMS[ROLE]) || {};
   var allowedTabs = perms.canSeeTabs || ['*'];
@@ -3531,6 +3535,7 @@ function gTab(pg) {
   if(pg==='pgHist')swHTab('dash');
   if(pg==='pgTri'){ try{ renderDB(1); }catch(e){} }
   if(pg==='pgMag'){ try{ if(typeof magDisegna==='function') magDisegna(); }catch(e){} }
+  if(pg==='pgGia'){ try{ if(typeof magDisegnaGiacenze==='function') magDisegnaGiacenze(); }catch(e){} }
   if(pg==='pgUbi')swUbiTab('ubi');
   if(pg==='pgAno'){syncListToAnomalie();renderAnoList();}
   if(pg==='pgCon')renderContatti();
@@ -9245,6 +9250,14 @@ function openScan(locId, mode2){
       {ctx.textContent='Scansiona articolo da ubicare';ctx.style.color='#3B9FD4';}
     else if(scanMode==='find')
       {ctx.textContent='Scansiona QR ubicazione';ctx.style.color='#3B9FD4';}
+    else if(scanMode==='mag'){
+      var che='';
+      try{ che=(window.magAspettaLettura&&window.magAspettaLettura())||''; }catch(e){}
+      ctx.textContent = che==='ubicazione' ? 'Inquadra l’etichetta dello scaffale'
+                      : che==='articolo'   ? 'Inquadra il codice sull’articolo'
+                      : 'Inquadra il codice';
+      ctx.style.color='#3B9FD4';
+    }
     else{ctx.textContent='';ctx.style.color='#aaa';}
   }
   startZxing();
@@ -9267,7 +9280,15 @@ var lastScanTime   = 0;
 
 // Il QR è riservato alle UBICAZIONI: nelle modalità articolo lo scanner
 // non deve MAI leggerlo (le scatole hanno spesso un QR accanto al barcode).
-function scanWantsQR(){ return scanMode==='find'; }
+function scanWantsQR(){
+  if(scanMode==='find') return true;
+  // In magazzino il QR serve solo quando si sta leggendo l'ubicazione:
+  // le etichette degli scaffali sono QR, i codici sugli articoli no.
+  if(scanMode==='mag'){
+    try{ return window.magAspettaLettura && window.magAspettaLettura()==='ubicazione'; }catch(e){ return false; }
+  }
+  return false;
+}
 
 // ── Motore di RINFORZO live: ZXing TRY_HARDER sui fotogrammi ─────────
 // Lo stesso decodificatore che legge le foto difficili, applicato in
@@ -9523,6 +9544,13 @@ function handleScanResult(code){
     closeScan();
   }
   code=code.trim().toUpperCase();
+  // Magazzino: la lettura torna al campo che l'aveva chiesta (ubicazione o
+  // articolo). Va prima del ramo LOC: qui sotto, che porta alle ubicazioni
+  // dei resi — un'altra cosa, con un altro elenco.
+  if(mode==='mag'){
+    scanMode='form'; scanLocId=null;
+    try{ if(typeof window.magDaLettore==='function'){ window.magDaLettore(code); return; } }catch(e){}
+  }
   // QR ubicazione
   if(code.indexOf('LOC:')===0){
     var locId=code.slice(4);

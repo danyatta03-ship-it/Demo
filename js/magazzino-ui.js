@@ -36,7 +36,7 @@
     magazzino: {
       nome: 'Magazzino',
       sotto: 'Ubicazioni, etichette, giacenze',
-      schede: ['tabMag', 'tabList', 'tabUbi', 'tabCon']
+      schede: ['tabMag', 'tabGia', 'tabUbi', 'tabCon']
     },
     resi: {
       nome: 'Resi',
@@ -92,8 +92,8 @@
     var r = REPARTI[id];
     if (!r) return;
 
-    var tutte = ['tabIns', 'tabList', 'tabAno', 'tabMag', 'tabUbi', 'tabTri',
-                 'tabHist', 'tabNotif', 'tabPortale', 'tabCon'];
+    var tutte = ['tabIns', 'tabList', 'tabAno', 'tabMag', 'tabGia', 'tabUbi',
+                 'tabTri', 'tabHist', 'tabNotif', 'tabPortale', 'tabCon'];
     tutte.forEach(function (t) {
       var el = document.getElementById(t);
       if (!el) return;
@@ -167,6 +167,10 @@
       misura(t.pezzi, 'PEZZI') +
       '</div>';
 
+    // Mettere e togliere. Sta in cima perche' la mappa e le etichette si
+    // fanno una volta sola, questo venti volte al giorno.
+    if (t.ubicazioni) h += pannelloMovimento();
+
     // La mappa del magazzino.
     var m = d.mappa || { daCorridoio: 'AA', aCorridoio: 'AD', scaffali: 12, ripiani: 4 };
     h += '<div class="card" style="margin-bottom:14px">' +
@@ -224,6 +228,7 @@
     pg.innerHTML = h;
     aggiornaConto();
     disegnaElenco();
+    if (t.ubicazioni) legaPannello();
 
     on('magGenera', 'click', generaUbicazioni);
     on('magStampa', 'click', stampaEtichette);
@@ -235,7 +240,7 @@
 
   function misura(n, etichetta) {
     return '<div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:11px 9px;text-align:center">' +
-      '<div style="font-size:20px;font-weight:800;color:#3B9FD4;line-height:1">' + n + '</div>' +
+      '<div class="mag-misura" style="font-size:20px;font-weight:800;color:#3B9FD4;line-height:1">' + n + '</div>' +
       '<div style="font-size:9.5px;color:#777;margin-top:4px;letter-spacing:.4px">' + etichetta + '</div></div>';
   }
 
@@ -434,9 +439,412 @@
     el.innerHTML = h;
   }
 
+  // ── Ubica e disubica ─────────────────────────────────────────────────
+  //
+  // Il giro e' sempre lo stesso: prima DOVE, poi COSA, poi QUANTI. In
+  // quest'ordine perche' e' l'ordine in cui si muove una persona: arriva
+  // allo scaffale, legge l'etichetta, e solo dopo guarda cosa ha in mano.
+  //
+  // I due campi accettano tre modi di riempirsi, e non li distinguono:
+  // la pistola (che scrive e batte Invio), la fotocamera, e le dita. Per il
+  // codice ubicazione la verifica e' la stessa in tutti e tre i casi.
+
+  var atteso = null;      // 'ubicazione' | 'articolo' | null
+
+  function pannelloMovimento() {
+    return '<div class="card" style="margin-bottom:14px">' +
+      '<div style="display:flex;gap:8px;margin-bottom:12px">' +
+        modoBtn('ubica', 'Ubica', true) +
+        modoBtn('disubica', 'Disubica', false) +
+      '</div>' +
+
+      '<div style="font-size:11px;color:#888;margin-bottom:4px">1 · DOVE</div>' +
+      rigaLettura('magUbi', 'Leggi o scrivi l’ubicazione', 'ubicazione') +
+      '<div id="magUbiEsito" style="font-size:12px;margin:6px 0 12px;min-height:16px"></div>' +
+
+      '<div style="font-size:11px;color:#888;margin-bottom:4px">2 · COSA</div>' +
+      rigaLettura('magArt', 'Leggi o scrivi il codice articolo', 'articolo') +
+      '<div id="magArtEsito" style="font-size:12px;margin:6px 0 12px;min-height:16px"></div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px">' +
+        campo('magQty', '3 · QUANTI', '1', 'number', '1') +
+        campo('magPrezzo', 'Prezzo (facoltativo)', '', 'text', '12,50') +
+      '</div>' +
+
+      '<button id="magConferma" style="width:100%;background:#3B9FD4;color:#001;border:none;' +
+        'border-radius:10px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;' +
+        '-webkit-appearance:none;font-family:inherit">Conferma</button>' +
+      '<div id="magMovEsito" style="font-size:12.5px;margin-top:10px;min-height:18px"></div>' +
+      '</div>';
+  }
+
+  function modoBtn(id, testo, attivo) {
+    return '<button class="mag-modo" data-modo="' + id + '" style="flex:1;padding:10px;' +
+      'border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;-webkit-appearance:none;' +
+      'font-family:inherit;border:1.5px solid ' + (attivo ? '#3B9FD4' : '#2a2a2a') + ';' +
+      'background:' + (attivo ? 'rgba(59,159,212,.14)' : '#111') + ';' +
+      'color:' + (attivo ? '#3B9FD4' : '#777') + '">' + testo + '</button>';
+  }
+
+  function rigaLettura(id, segnaposto, che) {
+    return '<div style="display:flex;gap:7px">' +
+      '<input id="' + id + '" placeholder="' + segnaposto + '" autocomplete="off" ' +
+        'style="flex:1;min-width:0;background:#0e0e0e;color:#fff;border:1px solid #2a2a2a;' +
+        'border-radius:8px;padding:12px;font-size:14px;font-family:monospace">' +
+      '<button class="mag-foto" data-che="' + che + '" title="Leggi con la fotocamera" ' +
+        'style="flex:none;width:46px;background:rgba(59,159,212,.12);color:#3B9FD4;' +
+        'border:1px solid rgba(59,159,212,.35);border-radius:8px;font-size:17px;cursor:pointer;' +
+        '-webkit-appearance:none">▣</button>' +
+      '</div>';
+  }
+
+  var modoMovimento = 'ubica';
+
+  function legaPannello() {
+    document.querySelectorAll('.mag-modo').forEach(function (b) {
+      b.addEventListener('click', function () {
+        modoMovimento = b.dataset.modo;
+        document.querySelectorAll('.mag-modo').forEach(function (x) {
+          var on = x.dataset.modo === modoMovimento;
+          x.style.borderColor = on ? '#3B9FD4' : '#2a2a2a';
+          x.style.background = on ? 'rgba(59,159,212,.14)' : '#111';
+          x.style.color = on ? '#3B9FD4' : '#777';
+        });
+        var c = document.getElementById('magConferma');
+        if (c) c.textContent = modoMovimento === 'ubica' ? 'Conferma' : 'Togli dall’ubicazione';
+        var pz = document.getElementById('magPrezzo');
+        if (pz) pz.parentNode.style.display = modoMovimento === 'ubica' ? '' : 'none';
+      });
+    });
+
+    document.querySelectorAll('.mag-foto').forEach(function (b) {
+      b.addEventListener('click', function () {
+        atteso = b.dataset.che;
+        if (typeof openScan === 'function') openScan(null, 'mag');
+        else avvisa('La fotocamera non è disponibile: scrivi il codice a mano.', 'y');
+      });
+    });
+
+    // La pistola scrive nel campo e batte Invio: e' un tasto, non un evento
+    // speciale. Basta ascoltare Invio e il giro va avanti da solo.
+    legaInvio('magUbi', function () { controllaUbicazione(true); });
+    legaInvio('magArt', function () { controllaArticolo(true); });
+    on('magUbi', 'input', function () { controllaUbicazione(false); });
+    on('magArt', 'input', function () { controllaArticolo(false); });
+    on('magConferma', 'click', eseguiMovimento);
+    legaInvio('magQty', eseguiMovimento);
+  }
+
+  function legaInvio(id, fn) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); fn(); }
+    });
+  }
+
+  /** Quello che arriva dalla fotocamera rientra da qui. */
+  function daLettore(codice) {
+    var che = atteso;
+    atteso = null;
+    if (che === 'articolo' || (!che && !M.eUbicazione(codice))) {
+      var a = document.getElementById('magArt');
+      if (a) { a.value = String(codice).trim().toUpperCase(); controllaArticolo(true); }
+      return true;
+    }
+    // Dall'etichetta esce "LOC:AA010173", ma nel campo ci va "AA-01-01-73":
+    // e' quello che c'e' scritto sullo scaffale, ed e' quello che chi guarda
+    // si aspetta di rileggere. Se la lettura non torna resta il grezzo, che
+    // serve a capire cosa e' stato inquadrato.
+    var v = M.daLettura(codice);
+    var u = document.getElementById('magUbi');
+    if (u) {
+      u.value = v.ok ? v.codice : String(codice).trim().toUpperCase();
+      controllaUbicazione(true);
+    }
+    return true;
+  }
+
+  function controllaUbicazione(avanza) {
+    var el = document.getElementById('magUbi');
+    var esito = document.getElementById('magUbiEsito');
+    if (!el || !esito) return null;
+    var t = el.value.trim();
+    if (!t) { esito.textContent = ''; el.style.borderColor = '#2a2a2a'; return null; }
+
+    var v = M.daLettura(t);
+    var d = leggiDeposito();
+
+    if (!v.ok) {
+      el.style.borderColor = '#E05555';
+      esito.innerHTML = '<span style="color:#E05555">' + esc(v.motivo) + '</span>';
+      return null;
+    }
+    if (!d.ubicazioni[v.codice]) {
+      el.style.borderColor = '#E05555';
+      esito.innerHTML = '<span style="color:#E05555">' + esc(v.leggibile) +
+        ' non esiste in questo magazzino.</span>';
+      return null;
+    }
+
+    el.style.borderColor = '#2ECC71';
+    var u = d.ubicazioni[v.codice];
+    var pz = u.articoli.reduce(function (s, a) { return s + a.qty; }, 0);
+    var dentro = u.articoli.length
+      ? u.articoli.length + (u.articoli.length === 1 ? ' articolo, ' : ' articoli, ') +
+        pz + (pz === 1 ? ' pezzo' : ' pezzi')
+      : 'vuota';
+    esito.innerHTML = '<span style="color:#2ECC71">' + esc(v.leggibile) + '</span>' +
+      '<span style="color:#777"> · ' + dentro + '</span>';
+
+    if (avanza) { var a = document.getElementById('magArt'); if (a) a.focus(); }
+    return v.codice;
+  }
+
+  function controllaArticolo(avanza) {
+    var el = document.getElementById('magArt');
+    var esito = document.getElementById('magArtEsito');
+    if (!el || !esito) return null;
+    var cod = el.value.trim().toUpperCase();
+    if (!cod) { esito.textContent = ''; el.style.borderColor = '#2a2a2a'; return null; }
+
+    // Un'etichetta di ubicazione letta nel campo dell'articolo e' un errore
+    // di mira, non un articolo che si chiama cosi'.
+    if (M.eUbicazione(cod)) {
+      el.style.borderColor = '#E6B03C';
+      esito.innerHTML = '<span style="color:#E6B03C">Questa è un’etichetta di ubicazione: ' +
+        'va nel campo sopra.</span>';
+      return null;
+    }
+
+    el.style.borderColor = '#2ECC71';
+    var d = leggiDeposito();
+    var a = M.articolo(d, cod);
+    var dove = M.dove(d, cod);
+    var righe = [];
+    if (a && a.desc) righe.push(esc(a.desc));
+    if (a && a.prezzo != null) righe.push(euro(a.prezzo));
+    if (dove.length) {
+      righe.push('già in ' + dove.map(function (x) { return esc(x.leggibile) + ' (' + x.qty + ')'; }).join(', '));
+    }
+    esito.innerHTML = righe.length
+      ? '<span style="color:#888">' + righe.join(' · ') + '</span>'
+      : '<span style="color:#777">Codice nuovo.</span>';
+
+    if (a && a.prezzo != null) {
+      var pz = document.getElementById('magPrezzo');
+      if (pz && !pz.value) pz.value = String(a.prezzo).replace('.', ',');
+    }
+    if (avanza) { var q = document.getElementById('magQty'); if (q) { q.focus(); q.select(); } }
+    return cod;
+  }
+
+  function euro(n) {
+    return Number(n).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+  }
+
+  function eseguiMovimento() {
+    var esito = document.getElementById('magMovEsito');
+    var codUbi = controllaUbicazione(false);
+    var cod = controllaArticolo(false);
+    if (!codUbi) { mostra(esito, 'Manca l’ubicazione.', 'E05555'); return; }
+    if (!cod) { mostra(esito, 'Manca il codice articolo.', 'E05555'); return; }
+
+    var d = leggiDeposito();
+    var q = val('magQty');
+    var r;
+
+    if (modoMovimento === 'ubica') {
+      var pz = val('magPrezzo');
+      if (pz) {
+        var sa = M.salvaArticolo(d, { cod: cod, prezzo: pz, chi: nomeOperatore() });
+        if (!sa.ok) { mostra(esito, sa.motivo, 'E05555'); return; }
+      }
+      r = M.ubica(d, codUbi, cod, Number(q), nomeOperatore());
+    } else {
+      r = M.disubica(d, codUbi, cod, q === '' ? null : Number(q), nomeOperatore());
+    }
+
+    if (!r.ok) { mostra(esito, r.motivo, 'E05555'); return; }
+    salvaDeposito();
+
+    mostra(esito, (modoMovimento === 'ubica'
+      ? r.qty + ' × ' + r.cod + ' in ' + r.leggibile
+      : r.qty + ' × ' + r.cod + ' tolti da ' + r.leggibile +
+        (r.restano ? ' (ne restano ' + r.restano + ')' : ' (finiti)')), '2ECC71');
+    avvisa(modoMovimento === 'ubica' ? 'Ubicato' : 'Disubicato', 'b');
+
+    // Si resta sull'ubicazione e si svuota l'articolo: chi ubica un bancale
+    // fa venti codici nello stesso posto, e riscrivere ogni volta dove si
+    // trova e' il modo piu' rapido per fargli odiare l'app.
+    ['magArt', 'magPrezzo'].forEach(function (id) {
+      var e = document.getElementById(id); if (e) { e.value = ''; e.style.borderColor = '#2a2a2a'; }
+    });
+    var ea = document.getElementById('magArtEsito'); if (ea) ea.textContent = '';
+    var qq = document.getElementById('magQty'); if (qq) qq.value = '1';
+    var a2 = document.getElementById('magArt'); if (a2) a2.focus();
+
+    aggiornaMisure();
+    controllaUbicazione(false);
+  }
+
+  function mostra(el, testo, colore) {
+    if (el) el.innerHTML = '<span style="color:#' + colore + '">' + esc(testo) + '</span>';
+  }
+
+  function nomeOperatore() {
+    try { return (window.deviceName || '') + (window.ROLE ? ' · ' + window.ROLE : ''); }
+    catch (e) { return ''; }
+  }
+
+  /** Aggiorna i quattro numeri in cima senza ridisegnare tutta la scheda. */
+  function aggiornaMisure() {
+    var t = M.totali(leggiDeposito());
+    var v = [t.ubicazioni, t.piene, t.righe, t.pezzi];
+    document.querySelectorAll('#pgMag .mag-misura').forEach(function (el, i) {
+      if (v[i] != null) el.textContent = v[i];
+    });
+  }
+
+  // ── La lista del magazzino ───────────────────────────────────────────
+  //
+  // Non e' la lista dei resi, e non deve somigliarle. Li' si guardano le
+  // pratiche; qui si guarda la merce: che codice, quanti pezzi, dove stanno,
+  // quanto vale. Una riga per codice, non per scaffale, perche' la domanda
+  // che si fa e' "quanti ne ho" e non "cosa c'e' in AB 03 02".
+
+  function disegnaGiacenze() {
+    var pg = document.getElementById('pgGia');
+    if (!pg) return;
+    var h = '<div id="giaTesta"></div>';
+
+    h += '<div class="card" style="margin-bottom:14px">' +
+      '<div style="font-size:13px;font-weight:800;color:#3B9FD4;margin-bottom:10px">AGGIUNGI O CORREGGI UN CODICE</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px">' +
+        campo('giaCod', 'Codice', '', 'text', '0986437433') +
+        campo('giaPrezzo', 'Prezzo', '', 'text', '12,50') +
+      '</div>' +
+      campo('giaDesc', 'Descrizione', '', 'text', 'Iniettore') +
+      '<div style="margin-top:10px"><button id="giaSalva" style="background:#3B9FD4;color:#001;' +
+        'border:none;border-radius:9px;padding:11px 16px;font-size:13px;font-weight:800;cursor:pointer;' +
+        '-webkit-appearance:none;font-family:inherit">Salva il codice</button></div>' +
+      '<div id="giaEsito" style="font-size:12.5px;margin-top:9px;min-height:17px"></div>' +
+      '</div>';
+
+    h += '<input id="giaCerca" placeholder="Cerca codice o descrizione…" style="width:100%;' +
+      'background:#0e0e0e;color:#fff;border:1px solid #2a2a2a;border-radius:8px;padding:11px 12px;' +
+      'font-size:13px;margin-bottom:10px;font-family:inherit">' +
+      '<div id="giaElenco"></div>';
+
+    pg.innerHTML = h;
+    disegnaTestaGiacenze();
+    disegnaElencoGiacenze();
+    on('giaSalva', 'click', salvaCodice);
+    on('giaCerca', 'input', disegnaElencoGiacenze);
+    on('giaCod', 'input', function () {
+      var a = M.articolo(leggiDeposito(), val('giaCod'));
+      if (!a) return;
+      var dsc = document.getElementById('giaDesc');
+      var prz = document.getElementById('giaPrezzo');
+      if (dsc && !dsc.value) dsc.value = a.desc || '';
+      if (prz && !prz.value && a.prezzo != null) prz.value = String(a.prezzo).replace('.', ',');
+    });
+  }
+
+  function salvaCodice() {
+    var esito = document.getElementById('giaEsito');
+    var d = leggiDeposito();
+    var r = M.salvaArticolo(d, {
+      cod: val('giaCod'), desc: val('giaDesc'), prezzo: val('giaPrezzo'), chi: nomeOperatore()
+    });
+    if (!r.ok) { mostra(esito, r.motivo, 'E05555'); return; }
+    salvaDeposito();
+    mostra(esito, r.articolo.cod + ' salvato.', '2ECC71');
+    ['giaCod', 'giaDesc', 'giaPrezzo'].forEach(function (id) {
+      var e = document.getElementById(id); if (e) e.value = '';
+    });
+    disegnaTestaGiacenze();
+    disegnaElencoGiacenze();
+  }
+
+  /**
+   * I tre numeri in cima. Stanno in una funzione loro perche' cambiano ogni
+   * volta che si salva un codice, e una lista che dice due righe sotto una
+   * testata che dice "1 codice" fa dubitare di tutto il resto.
+   */
+  function disegnaTestaGiacenze() {
+    var el = document.getElementById('giaTesta');
+    if (!el) return;
+    var d = leggiDeposito();
+    var v = M.valoreTotale(d);
+    var g = M.giacenze(d);
+
+    var h = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">' +
+      misura(g.length, 'CODICI') +
+      misura(g.reduce(function (s, x) { return s + x.qty; }, 0), 'PEZZI') +
+      misura(euro(v.valore), 'VALORE') +
+      '</div>';
+
+    // Un totale che non dice di essere parziale e' un totale sbagliato.
+    if (v.senzaPrezzo) {
+      h += '<div style="background:rgba(230,176,60,.1);border:1px solid rgba(230,176,60,.35);' +
+        'border-radius:9px;padding:10px 12px;font-size:12px;color:#E6B03C;margin-bottom:12px">' +
+        v.senzaPrezzo + (v.senzaPrezzo === 1 ? ' codice non ha prezzo' : ' codici non hanno prezzo') +
+        ': il valore qui sopra è parziale.</div>';
+    }
+    el.innerHTML = h;
+  }
+
+  function disegnaElencoGiacenze() {
+    var el = document.getElementById('giaElenco');
+    if (!el) return;
+    var d = leggiDeposito();
+    var q = (val('giaCerca') || '').toUpperCase();
+    var g = M.giacenze(d).filter(function (x) {
+      return !q || x.cod.indexOf(q) >= 0 || (x.desc || '').toUpperCase().indexOf(q) >= 0;
+    });
+
+    if (!g.length) {
+      el.innerHTML = '<div style="text-align:center;padding:22px;color:#555;font-size:12.5px">' +
+        (q ? 'Nessun codice con “' + esc(q) + '”.' : 'Nessun codice in magazzino.') + '</div>';
+      return;
+    }
+
+    el.innerHTML = g.slice(0, 300).map(function (x) {
+      var dove = x.ubicazioni.length
+        ? x.ubicazioni.map(function (u) {
+            return '<span style="font-family:monospace;font-size:11px;color:#3B9FD4;background:rgba(59,159,212,.1);' +
+              'padding:2px 6px;border-radius:5px;margin-right:4px">' + esc(u.leggibile) + ' ×' + u.qty + '</span>';
+          }).join('')
+        : '<span style="font-size:11px;color:#666">non ubicato</span>';
+
+      return '<div style="background:#0e0e0e;border:1px solid #1f1f1f;border-left:3px solid ' +
+        (x.qty ? '#3B9FD4' : '#3a3a3a') + ';border-radius:9px;padding:11px 12px;margin-bottom:7px">' +
+        '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">' +
+          '<span style="font-family:monospace;font-size:14px;font-weight:800;color:' +
+            (x.qty ? '#3B9FD4' : '#666') + '">' + esc(x.cod) + '</span>' +
+          (x.desc ? '<span style="font-size:12px;color:#aaa;flex:1;min-width:0">' + esc(x.desc) + '</span>'
+                  : '<span style="flex:1"></span>') +
+          '<span style="font-size:13px;font-weight:800;color:#ddd">' + x.qty + ' pz</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap">' +
+          '<span style="flex:1;min-width:0">' + dove + '</span>' +
+          (x.prezzo == null
+            ? '<span style="font-size:11.5px;color:#E6B03C">prezzo mancante</span>'
+            : '<span style="font-size:11.5px;color:#777">' + euro(x.prezzo) + ' × ' + x.qty +
+              ' = <strong style="color:#ccc">' + euro(x.valore) + '</strong></span>') +
+        '</div></div>';
+    }).join('') + (g.length > 300
+      ? '<div style="text-align:center;padding:12px;color:#666;font-size:12px">Ne mostro 300 su ' + g.length + '.</div>'
+      : '');
+  }
+
   // ── Attacco al guscio ────────────────────────────────────────────────
 
   window.magDisegna = disegnaMagazzino;
+  window.magDisegnaGiacenze = disegnaGiacenze;
+  window.magDaLettore = daLettore;
+  window.magAspettaLettura = function () { return atteso; };
   window.magApriScelta = apriSceltaReparto;
   window.magApplicaReparto = applicaReparto;
   window.magRepartoAttivo = repartoAttivo;

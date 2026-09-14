@@ -432,6 +432,102 @@
     return { ubicazioni: piene + vuote, piene: piene, vuote: vuote, righe: righe, pezzi: pezzi };
   }
 
+  // ── Gli articoli ─────────────────────────────────────────────────────
+  //
+  // Un'ubicazione dice DOVE sta un codice e QUANTI ce ne sono. Non dice cosa
+  // sia quel codice ne' quanto vale: quello e' l'articolo, e vive una volta
+  // sola. Senza, la stessa descrizione andrebbe riscritta in ogni scaffale
+  // in cui il pezzo si trova, e al terzo scaffale sarebbe gia' diversa.
+
+  /** Il prezzo, letto come lo scrive una persona: "12,50" e "12.50" uguali. */
+  function prezzo(v) {
+    if (v == null || v === '') return null;
+    var n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+    if (!isFinite(n) || n < 0) return null;
+    return Math.round(n * 100) / 100;
+  }
+
+  function articolo(d, cod) {
+    if (!d.articoli) d.articoli = {};
+    return d.articoli[String(cod || '').trim().toUpperCase()] || null;
+  }
+
+  /**
+   * Scrive o aggiorna un articolo.
+   * Quello che non viene passato non si cancella: chi corregge il prezzo non
+   * deve riscrivere anche la descrizione per non perderla.
+   */
+  function salvaArticolo(d, dati) {
+    if (!d.articoli) d.articoli = {};
+    var cod = String((dati && dati.cod) || '').trim().toUpperCase();
+    if (!cod) return { ok: false, motivo: "Manca il codice dell'articolo." };
+
+    var p = dati.prezzo === undefined ? undefined : prezzo(dati.prezzo);
+    if (dati.prezzo !== undefined && dati.prezzo !== '' && p == null) {
+      return { ok: false, motivo: "Il prezzo non e' un numero: scrivilo come 12,50." };
+    }
+
+    var a = d.articoli[cod] || { cod: cod, desc: '', prezzo: null };
+    if (dati.desc !== undefined) a.desc = String(dati.desc).trim();
+    if (dati.prezzo !== undefined) a.prezzo = (dati.prezzo === '') ? null : p;
+    d.articoli[cod] = a;
+
+    registra(d, 'articolo', { cod: cod, prezzo: a.prezzo, chi: dati.chi || '' });
+    return { ok: true, articolo: a };
+  }
+
+  /**
+   * Cosa c'e' in magazzino, un codice per riga: quanti pezzi, dove stanno,
+   * quanto valgono. E' la domanda che si fa chi guarda il magazzino, non
+   * "cosa c'e' nello scaffale AB 03 02".
+   */
+  function giacenze(d) {
+    var per = {};
+    for (var k in d.ubicazioni) {
+      var u = d.ubicazioni[k];
+      for (var i = 0; i < u.articoli.length; i++) {
+        var r = u.articoli[i];
+        if (!per[r.cod]) per[r.cod] = { cod: r.cod, qty: 0, ubicazioni: [] };
+        per[r.cod].qty += r.qty;
+        per[r.cod].ubicazioni.push({ codice: u.codice, leggibile: u.leggibile, qty: r.qty });
+      }
+    }
+    // Anche un articolo in anagrafica ma senza giacenza va mostrato: e' un
+    // codice che conosciamo e che adesso e' finito, e saperlo serve.
+    if (d.articoli) {
+      for (var c in d.articoli) if (!per[c]) per[c] = { cod: c, qty: 0, ubicazioni: [] };
+    }
+
+    return Object.keys(per).sort().map(function (c) {
+      var a = (d.articoli && d.articoli[c]) || {};
+      var g = per[c];
+      g.desc = a.desc || '';
+      g.prezzo = (a.prezzo == null) ? null : a.prezzo;
+      g.valore = (g.prezzo == null) ? null : Math.round(g.prezzo * g.qty * 100) / 100;
+      return g;
+    });
+  }
+
+  /**
+   * Quanto vale il magazzino, e su quanti codici il conto e' incompleto.
+   * Un totale che finge di essere completo mentre meta' dei codici non ha
+   * prezzo e' peggio di nessun totale.
+   */
+  function valoreTotale(d) {
+    var tot = 0, conPrezzo = 0, senzaPrezzo = 0;
+    giacenze(d).forEach(function (g) {
+      if (g.prezzo == null) { if (g.qty > 0) senzaPrezzo++; return; }
+      if (g.qty > 0) conPrezzo++;
+      tot += g.valore;
+    });
+    return {
+      valore: Math.round(tot * 100) / 100,
+      conPrezzo: conPrezzo,
+      senzaPrezzo: senzaPrezzo,
+      completo: senzaPrezzo === 0
+    };
+  }
+
   // ── Fuori ────────────────────────────────────────────────────────────
 
   var Magazzino = {
@@ -455,7 +551,12 @@
     ubica: ubica,
     disubica: disubica,
     dove: dove,
-    totali: totali
+    totali: totali,
+    salvaArticolo: salvaArticolo,
+    articolo: articolo,
+    giacenze: giacenze,
+    valoreTotale: valoreTotale,
+    prezzo: prezzo
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Magazzino;
