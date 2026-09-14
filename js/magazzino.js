@@ -203,6 +203,122 @@
     return verifica(letto);
   }
 
+  // ── Il deposito ──────────────────────────────────────────────────────
+  //
+  // Cosa c'e' dentro ogni ubicazione, e come ci entra e ci esce. Tutto
+  // passa da qui, e tutto lascia una riga di movimento: un magazzino che non
+  // sa spiegare perche' un pezzo e' sparito non e' un magazzino, e' uno
+  // scaffale.
+
+  /** Un deposito vuoto, con la mappa del magazzino che lo descrive. */
+  function nuovoDeposito(mappa) {
+    var d = { mappa: mappa || null, ubicazioni: {}, movimenti: [] };
+    if (mappa) {
+      genera(mappa).forEach(function (u) {
+        d.ubicazioni[u.codice] = {
+          codice: u.codice, leggibile: u.leggibile,
+          corridoio: u.corridoio, scaffale: u.scaffale, ripiano: u.ripiano,
+          articoli: []
+        };
+      });
+    }
+    return d;
+  }
+
+  function registra(d, tipo, dati) {
+    d.movimenti.push(Object.assign({ ts: Date.now(), tipo: tipo }, dati));
+    if (d.movimenti.length > 5000) d.movimenti = d.movimenti.slice(-5000);
+  }
+
+  /**
+   * Mette un articolo in un'ubicazione.
+   * Non si fida di niente: il codice ubicazione passa dalla verifica, la
+   * quantita' dev'essere un numero intero positivo, e l'ubicazione deve
+   * esistere davvero nella mappa.
+   */
+  function ubica(d, codUbi, articolo, quantita, chi) {
+    var v = verifica(codUbi);
+    if (!v.ok) return { ok: false, motivo: v.motivo };
+
+    var u = d.ubicazioni[v.codice];
+    if (!u) return { ok: false, motivo: "L'ubicazione " + v.leggibile + " non esiste in questo magazzino." };
+
+    var art = String(articolo == null ? "" : articolo).trim().toUpperCase();
+    if (!art) return { ok: false, motivo: "Manca il codice dell'articolo." };
+
+    var q = Number(quantita);
+    if (!isFinite(q) || q <= 0 || Math.floor(q) !== q) {
+      return { ok: false, motivo: "La quantita' dev'essere un numero intero maggiore di zero." };
+    }
+
+    var riga = null;
+    for (var i = 0; i < u.articoli.length; i++) if (u.articoli[i].cod === art) riga = u.articoli[i];
+    if (riga) riga.qty += q; else u.articoli.push({ cod: art, qty: q, dal: Date.now() });
+
+    registra(d, "ubica", { ubicazione: v.codice, cod: art, qty: q, chi: chi || "" });
+    return { ok: true, ubicazione: v.codice, leggibile: v.leggibile, cod: art, qty: q, totale: (riga ? riga.qty : q) };
+  }
+
+  /**
+   * Toglie un articolo da un'ubicazione.
+   * Non si puo' togliere piu' di quello che c'e': un magazzino che va in
+   * negativo ha perso il conto, e nessuno se ne accorge finche' non serve.
+   */
+  function disubica(d, codUbi, articolo, quantita, chi) {
+    var v = verifica(codUbi);
+    if (!v.ok) return { ok: false, motivo: v.motivo };
+
+    var u = d.ubicazioni[v.codice];
+    if (!u) return { ok: false, motivo: "L'ubicazione " + v.leggibile + " non esiste in questo magazzino." };
+
+    var art = String(articolo == null ? "" : articolo).trim().toUpperCase();
+    var pos = -1;
+    for (var i = 0; i < u.articoli.length; i++) if (u.articoli[i].cod === art) pos = i;
+    if (pos < 0) return { ok: false, motivo: art + " non e' in " + v.leggibile + "." };
+
+    var riga = u.articoli[pos];
+    var q = quantita == null ? riga.qty : Number(quantita);
+    if (!isFinite(q) || q <= 0 || Math.floor(q) !== q) {
+      return { ok: false, motivo: "La quantita' dev'essere un numero intero maggiore di zero." };
+    }
+    if (q > riga.qty) {
+      return { ok: false, motivo: "In " + v.leggibile + " ce ne sono " + riga.qty + ", non " + q + "." };
+    }
+
+    riga.qty -= q;
+    if (riga.qty === 0) u.articoli.splice(pos, 1);
+
+    registra(d, "disubica", { ubicazione: v.codice, cod: art, qty: q, chi: chi || "" });
+    return { ok: true, ubicazione: v.codice, leggibile: v.leggibile, cod: art, qty: q, restano: riga.qty };
+  }
+
+  /** Dove sta un articolo, e quanti ce ne sono in ogni posto. */
+  function dove(d, articolo) {
+    var art = String(articolo == null ? "" : articolo).trim().toUpperCase();
+    var out = [];
+    for (var k in d.ubicazioni) {
+      var u = d.ubicazioni[k];
+      for (var i = 0; i < u.articoli.length; i++) {
+        if (u.articoli[i].cod === art) {
+          out.push({ ubicazione: u.codice, leggibile: u.leggibile, qty: u.articoli[i].qty });
+        }
+      }
+    }
+    return out.sort(function (a, b) { return a.codice < b.codice ? -1 : 1; });
+  }
+
+  /** Quante righe e quanti pezzi ci sono in tutto. */
+  function totali(d) {
+    var righe = 0, pezzi = 0, piene = 0, vuote = 0;
+    for (var k in d.ubicazioni) {
+      var n = d.ubicazioni[k].articoli.length;
+      if (n) piene++; else vuote++;
+      righe += n;
+      for (var i = 0; i < n; i++) pezzi += d.ubicazioni[k].articoli[i].qty;
+    }
+    return { ubicazioni: piene + vuote, piene: piene, vuote: vuote, righe: righe, pezzi: pezzi };
+  }
+
   // ── Fuori ────────────────────────────────────────────────────────────
 
   var Magazzino = {
@@ -216,7 +332,12 @@
     genera: genera,
     quante: quante,
     contenutoEtichetta: contenutoEtichetta,
-    daLettura: daLettura
+    daLettura: daLettura,
+    nuovoDeposito: nuovoDeposito,
+    ubica: ubica,
+    disubica: disubica,
+    dove: dove,
+    totali: totali
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Magazzino;
