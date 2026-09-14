@@ -1,11 +1,10 @@
 # Nordovest Ricambi
 
-Gestionale per un magazzino ricambi auto: ricevimento merce, resi ai
-fornitori, ubicazioni.
+Gestionale per i resi ai fornitori di un ricambista auto: la merce che torna
+indietro, da quando arriva a quando la pratica si chiude.
 
 ```bash
 npx serve .            # o qualunque server statico
-sh test/tutti.sh       # 69 prove, senza browser
 ```
 
 Nessuna compilazione, nessuna dipendenza da installare. I file vanno online
@@ -15,57 +14,33 @@ come sono scritti.
 
 | | |
 |---|---|
-| Ricevimento | tre modi: si fotografa la bolla, si riceve al PC quello che è stato fotografato, oppure si compila a mano |
+| Ricevimento | si fotografa la bolla e la legge l'AI, oppure si compila a mano nella stessa schermata |
 | Lista | tutte le pratiche, con ricerca e filtri |
 | Anomalie | quello che si è bloccato, e perché |
-| Magazzino | la mappa degli scaffali, le etichette da stampare, ubica e disubica |
-| Giacenze | la merce: un codice per riga, quanti pezzi, dove stanno, quanto valgono |
 | Logistica | ubicazioni, fornitori, foto dei colli |
 | Pregresso | lo storico, in sola lettura |
 
-All'ingresso si sceglie il reparto, magazzino o resi: sono due mestieri
-diversi, e chi sta fra gli scaffali non deve passare la giornata a scansare
-schede che non gli servono. La scelta si cambia dal nome del reparto, in alto.
-
 Le fasi del flusso sono RICEVIMENTO, UFFICIO RESI, MAGAZZINO, FINALE.
 
-## Il codice ubicazione
+## Le tre modalità del ricevimento
 
-Si legge `AA 01 01`: corridoio, scaffale, ripiano, nell'ordine in cui una
-persona cammina in magazzino. Il codice intero è `AA-01-01-42`, dove le
-ultime due cifre sono calcolate dalle altre con il metodo dell'IBAN,
-modulo 97.
+Entrando si sceglie come si lavora:
 
-Servono a una cosa sola: una lettura sbagliata viene **rifiutata** invece di
-finire nei dati. `AA 01 10` battuto al posto di `AA 01 01` non diventa
-un'altra ubicazione esistente, diventa un codice non valido, e l'app dice
-perché.
+| | |
+|---|---|
+| 📱 Scanner bolle | dal telefono: si fotografa e si manda al PC |
+| 💻 Ricevimento PC | arrivano le foto, l'AI le ha già lette, si controlla e si inserisce |
+| ✏️ Manuale | si scrivono le righe a mano |
 
-Il collaudo lo verifica per esaurimento: su un magazzino di 192 ubicazioni
-prova tutti i 19.968 errori di un singolo carattere e tutte le 1.035
-inversioni di due caratteri vicini. Nessuno passa.
+Le ultime due arrivano alla stessa schermata, ed è il punto: un articolo per
+riga, i dati che valgono per tutti scritti una volta sola in fondo, un
+bottone solo per mandarli tutti in lista. Cambia soltanto chi riempie le
+righe — l'AI, o le dita.
 
-Sta in [`js/magazzino.js`](js/magazzino.js).
-
-## Ubica e disubica
-
-Il giro è sempre lo stesso: prima DOVE, poi COSA, poi QUANTI — l'ordine in
-cui si muove una persona, che arriva allo scaffale, legge l'etichetta, e solo
-dopo guarda cosa ha in mano.
-
-I due campi accettano tre modi di riempirsi e non li distinguono: la pistola
-(che scrive e batte Invio come una tastiera), la fotocamera, e le dita. Il
-controllo del codice è lo stesso in tutti e tre i casi.
-
-Due cose che si notano solo usandolo: dopo un'ubicazione riuscita resta lo
-scaffale e si svuota il codice, perché chi ubica un bancale fa venti codici
-nello stesso posto; e un'etichetta di scaffale letta nel campo dell'articolo
-viene segnalata come errore di mira, non presa per un codice che si chiama
-così.
-
-## Da fare
-
-Inventario · flusso commessa.
+Prima la modalità manuale riapriva il modulo vecchio, un articolo per volta,
+con i campi in un altro ordine: chi passava dalla foto alla scrittura doveva
+cambiare mestiere a metà giornata. Ora no, e nei giorni in cui l'AI non
+risponde non si deve reimparare niente.
 
 ## Dati
 

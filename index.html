@@ -909,22 +909,19 @@ html[data-mode="RPC"] #pgIns > *:not(#ocrLivePanel),
 html[data-role="RPC"] #pgIns > *:not(#ocrLivePanel){
   display:none !important;
 }
-/* v35 — Modalità MAN (manuale): torna al form classico. Nascondiamo SOLO i
-   panel delle altre due modalità e il picker; tutto il resto (data listato,
-   codice, prezzo, causale, fornitore, ecc.) resta visibile come prima. */
-html[data-mode="MAN"] #pgIns > #modePickerPanel,
-html[data-mode="MAN"] #pgIns > #scaOnlyPanel,
-html[data-mode="MAN"] #pgIns > #ocrLivePanel,
-html[data-mode="MAN"] #pgIns > #manBackWrap{ /* placeholder: il wrapper resta visibile via override sotto */ }
-html[data-mode="MAN"] #pgIns > #modePickerPanel,
-html[data-mode="MAN"] #pgIns > #scaOnlyPanel,
-html[data-mode="MAN"] #pgIns > #ocrLivePanel{ display:none !important; }
+/* v37 — Modalità MAN (manuale): SOLO il suo panel, come le altre due. Il form
+   classico resta nel documento — applyOcrConfirm ci scrive dentro i dati comuni
+   prima di creare le righe — ma non si vede: chi compila a mano lavora nella
+   stessa schermata di chi arriva dalla foto, non in un modulo diverso. */
+html[data-mode="MAN"] #pgIns > *:not(#manOnlyPanel){ display:none !important; }
 
-#scaOnlyPanel{ text-align:center; padding:24px 14px; }
-#scaOnlyPanel .sca-title{ font-size:13px; font-weight:700; color:#3B9FD4; margin-bottom:6px; letter-spacing:.6px; }
-#scaOnlyPanel .sca-sub{ font-size:11px; color:#888; margin-bottom:20px; line-height:1.5; padding:0 8px; }
+/* v37 — Lo stesso vestito per il pannello manuale: e' la stessa cosa fatta in
+   un altro modo, e deve sembrarlo anche a occhio. */
+#scaOnlyPanel,#manOnlyPanel{ text-align:center; padding:24px 14px; }
+#scaOnlyPanel .sca-title,#manOnlyPanel .sca-title{ font-size:13px; font-weight:700; color:#3B9FD4; margin-bottom:6px; letter-spacing:.6px; }
+#scaOnlyPanel .sca-sub,#manOnlyPanel .sca-sub{ font-size:11px; color:#888; margin-bottom:20px; line-height:1.5; padding:0 8px; }
 /* v34t — pulsante camera più compatto e pulito (icona SVG, non emoji) */
-#scaOnlyPanel .sca-big{
+#scaOnlyPanel .sca-big,#manOnlyPanel .sca-big{
   display:flex; align-items:center; justify-content:center; gap:12px;
   width:100%; max-width:320px; margin:0 auto;
   background:linear-gradient(135deg,#0e3f60,#3B9FD4);
@@ -934,9 +931,9 @@ html[data-mode="MAN"] #pgIns > #ocrLivePanel{ display:none !important; }
   box-shadow:0 6px 20px rgba(59,159,212,.30);
   transition:transform .08s, box-shadow .15s;
 }
-#scaOnlyPanel .sca-big:active{ transform:scale(.97); box-shadow:0 3px 10px rgba(59,159,212,.25); }
-#scaOnlyPanel .sca-big svg{ width:22px; height:22px; flex-shrink:0; }
-#scaOnlyPanel .sca-hint{ font-size:10px; color:#666; margin-top:14px; }
+#scaOnlyPanel .sca-big:active,#manOnlyPanel .sca-big:active{ transform:scale(.97); box-shadow:0 3px 10px rgba(59,159,212,.25); }
+#scaOnlyPanel .sca-big svg,#manOnlyPanel .sca-big svg{ width:22px; height:22px; flex-shrink:0; }
+#scaOnlyPanel .sca-hint,#manOnlyPanel .sca-hint{ font-size:10px; color:#666; margin-top:14px; }
 
 /* v34t — MODE PICKER: due pulsanti Scanner / RPC in cima al RICEVIMENTO */
 #modePickerPanel{
@@ -1171,8 +1168,6 @@ html[data-theme="light"] .btn-anomalia{
      FASI_ORDER, NEXT_FASE, PREV_FASE, subsForCausale). Caricate SINCRONO
      PRIMA della SPA principale: i simboli globali sono disponibili all'inline
      script che le usa. Vedi js/taxonomies.js. -->
-<script src="js/magazzino.js"></script>
-<script defer src="js/magazzino-ui.js"></script>
 <script src="js/taxonomies.js"></script>
 <script src="qrcode-lib.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';document.head.appendChild(s);})()"></script>
 <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -1262,7 +1257,6 @@ html[data-theme="light"] .btn-anomalia{
 <div class="hdr" id="mainHdr" style="display:none">
   <div class="hdr-logo"><span style="font-weight:800;letter-spacing:.02em;font-size:15px;color:var(--txt)">NORDOVEST<span style="opacity:.55"> </span>RICAMBI</span></div>
   <div class="hdr-title"><span style="color:#3B9FD4;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">RESI CITTANOVA</span><span class="hdr-mode" id="hdrMode"></span></div>
-  <div id="repNome" onclick="if(typeof magApriScelta==='function')magApriScelta()" title="Cambia reparto" style="cursor:pointer;font-size:11px;font-weight:800;color:#3B9FD4;background:rgba(59,159,212,.12);border:1px solid rgba(59,159,212,.35);border-radius:6px;padding:3px 8px;letter-spacing:.3px"></div>
   <div id="rolePill" class="role-badge" onclick="showSettings()" style="cursor:pointer">—</div>
   <div class="online-b"><div class="opulse"></div><span id="onlineN">1</span></div>
   <div class="cdot" id="cdot" title="Connessione · click per cambiare tema" onclick="toggleTheme()"></div>
@@ -1287,8 +1281,6 @@ html[data-theme="light"] .btn-anomalia{
   <button class="tab on" id="tabIns"  onclick="gTab('pgIns')">RICEVIM.</button>
   <button class="tab"    id="tabList" onclick="gTab('pgList')">LISTA <span class="nbadge" id="nbadge" style="display:none">0</span></button>
   <button class="tab"    id="tabAno"  onclick="gTab('pgAno')">ANOMALIE</button>
-  <button class="tab"    id="tabMag"  onclick="gTab('pgMag')">MAGAZZINO</button>
-  <button class="tab"    id="tabGia"  onclick="gTab('pgGia')">GIACENZE</button>
   <button class="tab"    id="tabUbi"  onclick="gTab('pgUbi')">LOGISTICA</button>
   <button class="tab"    id="tabTri"  onclick="gTab('pgTri')">PREGRESSO</button>
   <button class="tab"    id="tabHist" onclick="gTab('pgHist')">RESOCONTO</button>
@@ -1544,11 +1536,6 @@ html[data-theme="light"] .btn-anomalia{
 
 
 <!-- ═══ LOGISTICA (UBICAZIONI + LOGISTICA fornitori/corrieri + FOTO PACCO) ═══ -->
-<div class="pg" id="pgMag" style="display:none"></div>
-
-<!-- ═══ GIACENZE — la merce: codici, prezzi, quantita. Non e la lista dei resi ═══ -->
-<div class="pg" id="pgGia" style="display:none"></div>
-
 <div class="pg" id="pgUbi" style="display:none">
 
   <!-- Sub-tabs LOGISTICA -->
@@ -2277,9 +2264,6 @@ function launchApp() {
   initAutomations();
   // v30: riorganizzazione tab — sposta i pannelli nelle nuove posizioni
   try{ relocatePanels(); }catch(e){ try{console.warn('relocatePanels',e);}catch(_){} }
-  // La scelta del reparto: si fa qui, subito dopo l'accesso, perche' decide
-  // quali schede si vedono. Se e' gia' stata fatta, si applica e basta.
-  try{ if(typeof magDopoAccesso==='function') magDopoAccesso(); }catch(e){}
   // v28: FAB flottanti rimossi, i pulsanti Chat/AI vivono nel footer. Se AI non disponibile disabilito il bottone footer.
   var btnAi=document.getElementById('btnAiCop');
   if(btnAi){
@@ -3509,8 +3493,8 @@ function setDataContatto() {
 // NAVIGATION
 // ══════════════════════════════════════════════════
 function gTab(pg) {
-  var all=['pgIns','pgList','pgAno','pgMag','pgGia','pgUbi','pgTri','pgHist','pgNotif','pgPortale','pgCon'];
-  var tabs=['tabIns','tabList','tabAno','tabMag','tabGia','tabUbi','tabTri','tabHist','tabNotif','tabPortale','tabCon'];
+  var all=['pgIns','pgList','pgAno','pgUbi','pgTri','pgHist','pgNotif','pgPortale','pgCon'];
+  var tabs=['tabIns','tabList','tabAno','tabUbi','tabTri','tabHist','tabNotif','tabPortale','tabCon'];
   // Blocco accesso a tab non permessi al ruolo corrente
   var perms = (typeof ROLE_PERMS!=='undefined' && ROLE_PERMS[ROLE]) || {};
   var allowedTabs = perms.canSeeTabs || ['*'];
@@ -3534,8 +3518,6 @@ function gTab(pg) {
   if(pg==='pgQ'){queueShown=QUEUE_PAGE;renderQueue();}
   if(pg==='pgHist')swHTab('dash');
   if(pg==='pgTri'){ try{ renderDB(1); }catch(e){} }
-  if(pg==='pgMag'){ try{ if(typeof magDisegna==='function') magDisegna(); }catch(e){} }
-  if(pg==='pgGia'){ try{ if(typeof magDisegnaGiacenze==='function') magDisegnaGiacenze(); }catch(e){} }
   if(pg==='pgUbi')swUbiTab('ubi');
   if(pg==='pgAno'){syncListToAnomalie();renderAnoList();}
   if(pg==='pgCon')renderContatti();
@@ -9250,14 +9232,6 @@ function openScan(locId, mode2){
       {ctx.textContent='Scansiona articolo da ubicare';ctx.style.color='#3B9FD4';}
     else if(scanMode==='find')
       {ctx.textContent='Scansiona QR ubicazione';ctx.style.color='#3B9FD4';}
-    else if(scanMode==='mag'){
-      var che='';
-      try{ che=(window.magAspettaLettura&&window.magAspettaLettura())||''; }catch(e){}
-      ctx.textContent = che==='ubicazione' ? 'Inquadra l’etichetta dello scaffale'
-                      : che==='articolo'   ? 'Inquadra il codice sull’articolo'
-                      : 'Inquadra il codice';
-      ctx.style.color='#3B9FD4';
-    }
     else{ctx.textContent='';ctx.style.color='#aaa';}
   }
   startZxing();
@@ -9280,15 +9254,7 @@ var lastScanTime   = 0;
 
 // Il QR è riservato alle UBICAZIONI: nelle modalità articolo lo scanner
 // non deve MAI leggerlo (le scatole hanno spesso un QR accanto al barcode).
-function scanWantsQR(){
-  if(scanMode==='find') return true;
-  // In magazzino il QR serve solo quando si sta leggendo l'ubicazione:
-  // le etichette degli scaffali sono QR, i codici sugli articoli no.
-  if(scanMode==='mag'){
-    try{ return window.magAspettaLettura && window.magAspettaLettura()==='ubicazione'; }catch(e){ return false; }
-  }
-  return false;
-}
+function scanWantsQR(){ return scanMode==='find'; }
 
 // ── Motore di RINFORZO live: ZXing TRY_HARDER sui fotogrammi ─────────
 // Lo stesso decodificatore che legge le foto difficili, applicato in
@@ -9544,13 +9510,6 @@ function handleScanResult(code){
     closeScan();
   }
   code=code.trim().toUpperCase();
-  // Magazzino: la lettura torna al campo che l'aveva chiesta (ubicazione o
-  // articolo). Va prima del ramo LOC: qui sotto, che porta alle ubicazioni
-  // dei resi — un'altra cosa, con un altro elenco.
-  if(mode==='mag'){
-    scanMode='form'; scanLocId=null;
-    try{ if(typeof window.magDaLettore==='function'){ window.magDaLettore(code); return; } }catch(e){}
-  }
   // QR ubicazione
   if(code.indexOf('LOC:')===0){
     var locId=code.slice(4);
@@ -14143,6 +14102,44 @@ function _preFromPregresso(cod){
   window._PRE_PREGR_CACHE[cod] = out;
   return out;
 }
+// ═══════════════════════════════════════════════════════════════════════
+// COMPILAZIONE MANUALE
+//
+// E' la stessa schermata che esce dopo la foto, aperta vuota. Non una
+// seconda maniera di fare la stessa cosa: la stessa. Chi la bolla non ce
+// l'ha in mano — o ce l'ha ma su carta, e la fotografia non serve —
+// scrive le righe con lo stesso ordine dei gesti: un articolo per riga,
+// i dati comuni una volta sola in fondo, un bottone solo per mandarli
+// tutti in lista.
+// ═══════════════════════════════════════════════════════════════════════
+function apriCompilazioneManuale(){
+  // Quello che resta di una lettura precedente non deve entrare qui dentro.
+  // Una foto di un'altra bolla attaccata a questi articoli sarebbe un errore
+  // che nessuno andrebbe piu' a cercare: si vedrebbe solo mesi dopo, aprendo
+  // la riga sbagliata.
+  try{
+    window._ocrRes           = null;
+    window._ocrPezzoPhotos   = {};
+    window._ocrBollaThumb    = '';
+    window._ocrConfPhotoUrl  = '';
+    window._ocrDraftId       = null;
+    window._ocrDraftIsDraft  = false;
+    window._ocrFilIn         = false;
+  }catch(e){}
+
+  // Quello che e' gia' scritto in cima al form non si fa riscrivere.
+  var g=function(id){ var e=document.getElementById(id); return e?(e.value||'').trim():''; };
+  showOcrConfirm({
+    articoli:     [],
+    data_listato: g('hArr'),
+    data:         g('hBolla'),
+    vetRic:       g('hVet'),
+    sogg:         g('hSogg'),
+    rma:          g('cRma'),
+    note:         ''
+  }, null, 'manuale');
+}
+
 function showOcrConfirm(res, photoUrl, source){
   res=res||{}; res.articoli=res.articoli||[];
   // v36k — Reset flags soggetto per nuova sessione OCR
@@ -14227,7 +14224,12 @@ function showOcrConfirm(res, photoUrl, source){
 
   var a0=res.articoli[0]||{pre:'',cod:'',qty:'1',prc:''};
   var html='';
-  html+='<div style="font-size:14px;font-weight:800;color:#3B9FD4;margin-bottom:5px">\ud83d\udcc4 Dati letti dalla bolla</div>';
+  // v37 \u2014 Stessa schermata anche senza foto: chi compila a mano vede questo,
+  //   non un altro modulo. Cambia solo il titolo, perche' qui non c'e' niente
+  //   da controllare \u2014 c'e' da scrivere.
+  var _manuale = (source==='manuale');
+  html+='<div style="font-size:14px;font-weight:800;color:#3B9FD4;margin-bottom:5px">'+
+    (_manuale ? '\u270d\ufe0f Compilazione manuale' : '\ud83d\udcc4 Dati letti dalla bolla')+'</div>';
   var _badge='';
   if(source==='ai') _badge='<span style="background:rgba(46,204,113,.15);color:#2ecc71;border:1px solid rgba(46,204,113,.4);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:800">\ud83e\udd16 Letto con AI</span>';
   else if(source==='offline-fallback') _badge='<span style="background:rgba(224,85,85,.12);color:#E05555;border:1px solid rgba(224,85,85,.35);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:800">\u26a0 AI non disponibile \u2192 offline</span>';
@@ -14253,7 +14255,11 @@ function showOcrConfirm(res, photoUrl, source){
             '</div>' +
           '</div>';
   }
-  html+='<div style="font-size:11px;color:#888;margin-bottom:12px">Controlla e correggi, poi inserisci nel form.'+(nArt>1?' <b style="color:#3B9FD4">'+nArt+' articoli trovati.</b>':'')+'</div>';
+  html+='<div style="font-size:11px;color:#888;margin-bottom:12px">'+
+    (_manuale
+      ? 'Un articolo per riga. I dati che valgono per tutti si scrivono una volta sola, qui sotto.'
+      : 'Controlla e correggi, poi inserisci nel form.'+(nArt>1?' <b style="color:#3B9FD4">'+nArt+' articoli trovati.</b>':''))+
+    '</div>';
   // v36n — Se l'AI ha CONTATO piu' righe di quante ne ha trascritte, dillo chiaramente:
   //   meglio un avviso esplicito che un inserimento silenziosamente incompleto.
   try{
@@ -14278,8 +14284,11 @@ function showOcrConfirm(res, photoUrl, source){
       '<button type="button" onclick="ocrAddRow()" style="flex:1;min-width:130px;background:#0a1e3a;color:#3B9FD4;border:1px dashed rgba(59,159,212,.5);border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;font-family:inherit">+ Aggiungi riga vuota</button>'+
       // v36a — Rimuovi ultima riga (paired con +Aggiungi, cosi' l'utente non deve cercare la ✕ per-riga)
       '<button type="button" onclick="ocrRemoveLastRow()" style="flex:0 0 auto;background:rgba(224,85,85,.10);color:#E05555;border:1px dashed rgba(224,85,85,.5);border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;font-family:inherit">− Rimuovi ultima riga</button>'+
-      // v35u — Multi-bolla stesso cliente
-      '<button type="button" onclick="ocrAddAltraBolla()" style="flex:1;min-width:130px;background:rgba(46,204,113,.10);color:#3fbf6f;border:1px dashed #3fbf6f;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;font-family:inherit">📸 Altra bolla stesso cliente</button>'+
+      // v35u — Multi-bolla stesso cliente. Compilando a mano non c'e' una bolla
+      //   da riprendere, quindi il bottone non compare: offrire la fotocamera a
+      //   chi ha scelto di scrivere e' un invito a sbagliare strada.
+      (_manuale ? '' :
+      '<button type="button" onclick="ocrAddAltraBolla()" style="flex:1;min-width:130px;background:rgba(46,204,113,.10);color:#3fbf6f;border:1px dashed #3fbf6f;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;font-family:inherit">📸 Altra bolla stesso cliente</button>')+
     '</div>';
 
   html+='<div style="height:1px;background:#222;margin:6px 0 10px"></div>';
@@ -14317,8 +14326,11 @@ function showOcrConfirm(res, photoUrl, source){
   // v34s/v34aa: SCA (via ROLE o mode-picker) vede "Invia al PC" (skippa validazioni), gli altri "Aggiungi tutti alla lista"
   var _isScaUi = (typeof ROLE!=='undefined' && ROLE==='SCA') || (typeof _isMode==='function' && _isMode('SCA'));
   // v36k \u2014 mostra il conteggio esplicito nel bottone: "\u2713 Aggiungi 25 alla lista"
-  var _btnMainTxt = _isScaUi ? '\u2713 Invia al PC ('+nArt+' articol'+(nArt===1?'o':'i')+')' : '\u2713 Aggiungi '+nArt+' alla lista';
-  html+='<button onclick="applyOcrConfirm(true)" style="width:100%;background:#3B9FD4;color:#fff;border:none;padding:13px;font-size:15px;font-weight:800;border-radius:10px;cursor:pointer;-webkit-appearance:none;font-family:inherit;margin-bottom:6px">'+_btnMainTxt+'</button>';
+  // v37 \u2014 Il modello del testo resta sul bottone, cosi' ocrRelabelRows lo
+  //   riscrive col numero giusto a ogni riga aggiunta o tolta.
+  var _btnMainTpl = _isScaUi ? '\u2713 Invia al PC ({n} {art})' : '\u2713 Aggiungi {n} alla lista';
+  var _btnMainTxt = _btnMainTpl.replace('{n}', nArt).replace('{art}', nArt===1?'articolo':'articoli');
+  html+='<button id="ocrBtnMain" data-tpl="'+xe(_btnMainTpl)+'" onclick="applyOcrConfirm(true)" style="width:100%;background:#3B9FD4;color:#fff;border:none;padding:13px;font-size:15px;font-weight:800;border-radius:10px;cursor:pointer;-webkit-appearance:none;font-family:inherit;margin-bottom:6px">'+_btnMainTxt+'</button>';
   // "Precompila solo il form" non ha senso per SCA (non ha il form principale)
   if(!_isScaUi){
     html+='<button onclick="applyOcrConfirm(false)" style="width:100%;background:#0a1e3a;color:#3B9FD4;border:1.5px solid #3B9FD4;padding:10px;font-size:12px;font-weight:700;border-radius:10px;cursor:pointer;-webkit-appearance:none;font-family:inherit;margin-bottom:6px">Precompila solo il form (senza inserire)</button>';
@@ -14623,7 +14635,7 @@ function ocrRowHtml(i, a){
   var _inpCss=_selCss;
   return '<div class="ocrRow" data-i="'+i+'" style="border:1px solid #1e2530;background:rgba(59,159,212,.03);border-radius:9px;padding:8px;margin-bottom:6px">'+
     '<div style="display:flex;gap:5px;align-items:center;margin-bottom:6px">'+
-      '<div style="width:22px;color:#3B9FD4;font-size:12px;font-weight:800;text-align:right">'+(i+1)+'.</div>'+
+      '<div class="ocrRowNum" style="width:22px;color:#3B9FD4;font-size:12px;font-weight:800;text-align:right">'+(i+1)+'.</div>'+
       '<input class="ocrRowPre" value="'+xe2(pre)+'" placeholder="PRE" maxlength="3" oninput="_prePartialInput(this);this.style.borderColor=\'#2a2a2a\';this.style.background=\'#111\';this.title=\'\'" onblur="_preBlurNorm(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();ocrRowFocusNext(this);}" title="'+(_preSuggested?'PRE suggerito dal pregresso — conferma o correggi':'')+'" style="width:56px;background:'+(_preSuggested?'#3a2f00':'#111')+';color:'+(_preSuggested?'#f5c542':'#3B9FD4')+';border:1.5px '+(_preSuggested?'dashed #f5c542':'solid #2a2a2a')+';padding:8px 6px;font-size:12px;font-weight:700;border-radius:7px;outline:none;font-family:monospace;-webkit-appearance:none;text-align:center">'+
       '<input class="ocrRowCod" value="'+xe2(cod)+'" placeholder="codice" oninput="_upcase(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();ocrRowFocusNext(this);}" style="flex:1;background:#111;color:#fff;border:1px solid #2a2a2a;padding:8px 8px;font-size:12px;border-radius:7px;outline:none;font-family:monospace;-webkit-appearance:none;min-width:0">'+
       '<input class="ocrRowQty" type="number" min="1" value="'+qty+'" title="Quantità" onkeydown="if(event.key===\'Enter\'){event.preventDefault();ocrRowFocusNext(this);}" style="width:44px;background:#111;color:#fff;border:1px solid #2a2a2a;padding:8px 4px;font-size:12px;border-radius:7px;outline:none;font-family:inherit;-webkit-appearance:none;text-align:center">'+
@@ -14842,7 +14854,29 @@ function ocrDelRow(btn){
 function ocrRelabelRows(){
   var list=document.getElementById('ocrArtList'); if(!list) return;
   var rows=list.querySelectorAll('.ocrRow');
-  for(var i=0;i<rows.length;i++){ var lbl=rows[i].querySelector('div'); if(lbl) lbl.textContent=(i+1)+'.'; rows[i].setAttribute('data-i', i); }
+  // v37 — Il numero di riga ha una classe sua. Prima si prendeva il primo div
+  //   della riga, che non e' il numerino: e' il contenitore di PRE, CODICE,
+  //   QTA' e PREZZO. Riscriverne il testo cancellava quei campi da tutte le
+  //   righe a ogni aggiunta o eliminazione, e il lavoro gia' fatto spariva
+  //   senza un errore. Chi se ne accorgeva dopo aver inserito lo scopriva in
+  //   lista, con le righe vuote.
+  for(var i=0;i<rows.length;i++){
+    var lbl=rows[i].querySelector('.ocrRowNum');
+    if(lbl) lbl.textContent=(i+1)+'.';
+    rows[i].setAttribute('data-i', i);
+  }
+  // v37 — E il bottone segue le righe. Il conteggio era quello del momento in
+  //   cui il modal e' stato disegnato: dopo un'aggiunta o un'eliminazione il
+  //   bottone diceva un numero e ne inseriva un altro. Compilando a mano si
+  //   parte sempre da una riga sola e si aggiunge, quindi sbagliava sempre.
+  try{
+    var b=document.getElementById('ocrBtnMain');
+    if(b && b.getAttribute('data-tpl')){
+      b.textContent = b.getAttribute('data-tpl')
+        .replace('{n}', rows.length)
+        .replace('{art}', rows.length===1 ? 'articolo' : 'articoli');
+    }
+  }catch(e){}
 }
 function ocrCollectRows(){
   var list=document.getElementById('ocrArtList'); if(!list) return [];
@@ -17776,7 +17810,7 @@ function renderModePickerPanel(){
       '</button>'+
       '<button class="mp-btn" onclick="switchToMode(\'MAN\')">'+
         '<span class="ico">✏️</span>Manuale'+
-        '<small>compilo il form classico a mano</small>'+
+        '<small>scrivo le righe io → stessa schermata della foto</small>'+
       '</button>'+
     '</div>';
 }
@@ -17799,24 +17833,45 @@ function switchToMode(mode){
   var _sp = document.getElementById('scaOnlyPanel'); if(_sp) _sp.remove();
   var _op = document.getElementById('ocrLivePanel'); if(_op) _op.remove();
   var _mb = document.getElementById('manBackWrap'); if(_mb) _mb.remove();
+  var _mo = document.getElementById('manOnlyPanel'); if(_mo) _mo.remove();
   if(mode === 'SCA'){ renderScaPanel(); }
   else if(mode === 'RPC'){ if(typeof ocrLiveListen==='function') ocrLiveListen(); renderOcrLivePanel(); }
-  else if(mode === 'MAN'){ renderManBackButton(); }
+  else if(mode === 'MAN'){ renderManPanel(); }
   try{ if(typeof toast==='function') toast('Modalità: '+(mode==='SCA'?'📱 SCANNER BOLLE':mode==='RPC'?'💻 RICEVIMENTO PC':'✏️ MANUALE'),'b'); }catch(e){}
 }
 
-// v35 — Modalità MANUALE: pulsante "← Cambia modalità" fluttuante in cima al
-// form classico. Il resto della pagina (data listato, codice, prezzo, ecc.)
-// e' gia' visibile grazie al CSS che nasconde solo picker/panel altre modalita.
-function renderManBackButton(){
+// v37 — Modalità MANUALE: la stessa schermata del ricevimento PC, ma con le
+// righe da scrivere invece che da correggere.
+//
+// Prima questa modalità riapriva il form vecchio: un articolo per volta, in
+// pagina, con un'altra disposizione dei campi. Chi passava dalla foto alla
+// scrittura doveva cambiare mestiere a metà giornata. Ora le due strade
+// arrivano allo stesso posto — un articolo per riga, i dati comuni una volta
+// sola, un bottone solo — e cambia soltanto chi riempie le righe.
+function renderManPanel(){
+  if(typeof _isMode !== 'function' || !_isMode('MAN')) return;
   var pg = document.getElementById('pgIns'); if(!pg) return;
-  if(document.getElementById('manBackWrap')) return;
-  var wrap = document.createElement('div');
-  wrap.id = 'manBackWrap';
-  wrap.style.cssText = 'display:flex;justify-content:flex-start;margin-bottom:8px';
-  wrap.innerHTML = '<button class="mp-back" onclick="backToModePicker()" style="background:rgba(59,159,212,.1);color:#3B9FD4;border:1.5px solid #3B9FD4;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;cursor:pointer;-webkit-appearance:none;font-family:inherit">← Cambia modalità</button>';
-  pg.insertBefore(wrap, pg.firstChild);
+  var host = document.getElementById('manOnlyPanel');
+  if(!host){
+    host = document.createElement('div');
+    host.id = 'manOnlyPanel';
+    pg.insertBefore(host, pg.firstChild);
+  }
+  host.innerHTML =
+    '<button class="mp-back" onclick="backToModePicker()">← Cambia modalità</button>'+
+    '<div class="sca-title">COMPILAZIONE MANUALE</div>'+
+    '<div class="sca-sub">La stessa schermata che esce dopo la foto, da riempire a mano.<br>Un articolo per riga, i dati comuni una volta sola.</div>'+
+    '<button class="sca-big" onclick="apriCompilazioneManuale()" title="Apri la schermata di inserimento">'+
+      '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+
+        '<path d="M4 20h4l10-10a2.83 2.83 0 0 0-4-4L4 16v4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'+
+        '<path d="M13.5 6.5 17.5 10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'+
+      '</svg><span>Nuova bolla</span>'+
+    '</button>'+
+    '<div class="sca-hint">Funziona anche senza connessione e senza AI</div>';
 }
+// Il vecchio nome resta agganciato: lo chiamano il ripristino al boot e il
+// cambio modalità, e un rename a metà non varrebbe il rischio.
+function renderManBackButton(){ renderManPanel(); }
 
 // v34u — Torna alla schermata di scelta modalità
 function backToModePicker(){
@@ -17826,6 +17881,7 @@ function backToModePicker(){
   var sp = document.getElementById('scaOnlyPanel'); if(sp) sp.remove();
   var op = document.getElementById('ocrLivePanel'); if(op) op.remove();
   var mb = document.getElementById('manBackWrap'); if(mb) mb.remove();
+  var mo = document.getElementById('manOnlyPanel'); if(mo) mo.remove();
   renderModePickerPanel();
 }
 
@@ -17982,6 +18038,7 @@ function initOcrLiveAuto(){
   if(typeof ROLE==='undefined') return;
   if(_isMode && _isMode('SCA')){ try{ renderScaPanel(); }catch(e){} return; }
   if(_isMode && _isMode('RPC')){ try{ ocrLiveListen(); renderOcrLivePanel(); }catch(e){} return; }
+  if(_isMode && _isMode('MAN')){ try{ renderManPanel(); }catch(e){} return; }
 }
 // Aggancio al boot: aspetta FB pronto poi avvia listener se RPC
 setTimeout(initOcrLiveAuto, 2000);
