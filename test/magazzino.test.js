@@ -160,8 +160,9 @@ gruppo('Quello che finisce dentro l\'etichetta');
 prova('nel codice a barre ci va il codice intero, controllo compreso', () => {
   const c = TUTTE[0].codice;
   const dentro = M.contenutoEtichetta(c);
-  eq(dentro, c.replace(/-/g, ''), 'il contenuto non corrisponde al codice');
-  eq(dentro.length, 8, 'otto caratteri: due lettere, quattro cifre, due di controllo');
+  // "LOC:" davanti dice al lettore che e un ubicazione e non un articolo.
+  eq(dentro, 'LOC:' + c.replace(/-/g, ''), 'il contenuto non corrisponde al codice');
+  eq(dentro.length, 12, 'LOC: piu otto caratteri');
 });
 
 prova('quello che esce dal lettore rientra dalla porta giusta', () => {

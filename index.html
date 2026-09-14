@@ -1171,6 +1171,8 @@ html[data-theme="light"] .btn-anomalia{
      FASI_ORDER, NEXT_FASE, PREV_FASE, subsForCausale). Caricate SINCRONO
      PRIMA della SPA principale: i simboli globali sono disponibili all'inline
      script che le usa. Vedi js/taxonomies.js. -->
+<script src="js/magazzino.js"></script>
+<script defer src="js/magazzino-ui.js"></script>
 <script src="js/taxonomies.js"></script>
 <script src="qrcode-lib.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';document.head.appendChild(s);})()"></script>
 <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -1260,6 +1262,7 @@ html[data-theme="light"] .btn-anomalia{
 <div class="hdr" id="mainHdr" style="display:none">
   <div class="hdr-logo"><span style="font-weight:800;letter-spacing:.02em;font-size:15px;color:var(--txt)">NORDOVEST<span style="opacity:.55"> </span>RICAMBI</span></div>
   <div class="hdr-title"><span style="color:#3B9FD4;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">RESI CITTANOVA</span><span class="hdr-mode" id="hdrMode"></span></div>
+  <div id="repNome" onclick="if(typeof magApriScelta==='function')magApriScelta()" title="Cambia reparto" style="cursor:pointer;font-size:11px;font-weight:800;color:#3B9FD4;background:rgba(59,159,212,.12);border:1px solid rgba(59,159,212,.35);border-radius:6px;padding:3px 8px;letter-spacing:.3px"></div>
   <div id="rolePill" class="role-badge" onclick="showSettings()" style="cursor:pointer">—</div>
   <div class="online-b"><div class="opulse"></div><span id="onlineN">1</span></div>
   <div class="cdot" id="cdot" title="Connessione · click per cambiare tema" onclick="toggleTheme()"></div>
@@ -1284,6 +1287,7 @@ html[data-theme="light"] .btn-anomalia{
   <button class="tab on" id="tabIns"  onclick="gTab('pgIns')">RICEVIM.</button>
   <button class="tab"    id="tabList" onclick="gTab('pgList')">LISTA <span class="nbadge" id="nbadge" style="display:none">0</span></button>
   <button class="tab"    id="tabAno"  onclick="gTab('pgAno')">ANOMALIE</button>
+  <button class="tab"    id="tabMag"  onclick="gTab('pgMag')">MAGAZZINO</button>
   <button class="tab"    id="tabUbi"  onclick="gTab('pgUbi')">LOGISTICA</button>
   <button class="tab"    id="tabTri"  onclick="gTab('pgTri')">PREGRESSO</button>
   <button class="tab"    id="tabHist" onclick="gTab('pgHist')">RESOCONTO</button>
@@ -1539,6 +1543,8 @@ html[data-theme="light"] .btn-anomalia{
 
 
 <!-- ═══ LOGISTICA (UBICAZIONI + LOGISTICA fornitori/corrieri + FOTO PACCO) ═══ -->
+<div class="pg" id="pgMag" style="display:none"></div>
+
 <div class="pg" id="pgUbi" style="display:none">
 
   <!-- Sub-tabs LOGISTICA -->
@@ -2267,6 +2273,9 @@ function launchApp() {
   initAutomations();
   // v30: riorganizzazione tab — sposta i pannelli nelle nuove posizioni
   try{ relocatePanels(); }catch(e){ try{console.warn('relocatePanels',e);}catch(_){} }
+  // La scelta del reparto: si fa qui, subito dopo l'accesso, perche' decide
+  // quali schede si vedono. Se e' gia' stata fatta, si applica e basta.
+  try{ if(typeof magDopoAccesso==='function') magDopoAccesso(); }catch(e){}
   // v28: FAB flottanti rimossi, i pulsanti Chat/AI vivono nel footer. Se AI non disponibile disabilito il bottone footer.
   var btnAi=document.getElementById('btnAiCop');
   if(btnAi){
@@ -3496,8 +3505,8 @@ function setDataContatto() {
 // NAVIGATION
 // ══════════════════════════════════════════════════
 function gTab(pg) {
-  var all=['pgIns','pgList','pgAno','pgUbi','pgTri','pgHist','pgNotif','pgPortale','pgCon'];
-  var tabs=['tabIns','tabList','tabAno','tabUbi','tabTri','tabHist','tabNotif','tabPortale','tabCon'];
+  var all=['pgIns','pgList','pgAno','pgMag','pgUbi','pgTri','pgHist','pgNotif','pgPortale','pgCon'];
+  var tabs=['tabIns','tabList','tabAno','tabMag','tabUbi','tabTri','tabHist','tabNotif','tabPortale','tabCon'];
   // Blocco accesso a tab non permessi al ruolo corrente
   var perms = (typeof ROLE_PERMS!=='undefined' && ROLE_PERMS[ROLE]) || {};
   var allowedTabs = perms.canSeeTabs || ['*'];
@@ -3521,6 +3530,7 @@ function gTab(pg) {
   if(pg==='pgQ'){queueShown=QUEUE_PAGE;renderQueue();}
   if(pg==='pgHist')swHTab('dash');
   if(pg==='pgTri'){ try{ renderDB(1); }catch(e){} }
+  if(pg==='pgMag'){ try{ if(typeof magDisegna==='function') magDisegna(); }catch(e){} }
   if(pg==='pgUbi')swUbiTab('ubi');
   if(pg==='pgAno'){syncListToAnomalie();renderAnoList();}
   if(pg==='pgCon')renderContatti();

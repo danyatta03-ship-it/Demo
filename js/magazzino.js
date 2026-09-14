@@ -189,9 +189,21 @@
   // Qui resta la parte che DEVE essere giusta e che si puo' dimostrare: cosa
   // c'e' scritto dentro il codice, e come si rilegge.
 
-  /** Quello che il lettore deve restituire quando inquadra l'etichetta. */
+  // Il contenuto dell'etichetta porta "LOC:" davanti. Serve a distinguere,
+  // nel momento in cui il lettore spara il codice, un'ubicazione da un
+  // codice articolo: senza prefisso l'app dovrebbe indovinare, e indovinare
+  // e' esattamente quello che non deve fare.
+  var PREFISSO = "LOC:";
+
+  /** Quello che il lettore restituisce quando inquadra l'etichetta. */
   function contenutoEtichetta(cod) {
-    return perBarre(cod);
+    var b = perBarre(cod);
+    return b ? PREFISSO + b : null;
+  }
+
+  /** Questa lettura e' un'ubicazione, o e' un articolo? */
+  function eUbicazione(letto) {
+    return String(letto == null ? "" : letto).toUpperCase().indexOf(PREFISSO) === 0;
   }
 
   /**
@@ -200,7 +212,108 @@
    * che salti la verifica.
    */
   function daLettura(letto) {
-    return verifica(letto);
+    var t = String(letto == null ? "" : letto).trim().toUpperCase();
+    if (t.indexOf(PREFISSO) === 0) t = t.slice(PREFISSO.length);
+    return verifica(t);
+  }
+
+  // ── Il foglio delle etichette ────────────────────────────────────────
+  //
+  // Un magazzino si etichetta una volta sola, e quella volta bisogna
+  // stampare centinaia di etichette senza sbagliarne una. Quindi il foglio
+  // si costruisce come testo, e si puo' collaudare senza stampante: quante
+  // etichette, in che ordine, con che misure.
+  //
+  // FORMATI
+  //   'a4'   fogli adesivi comuni, 3 colonne per 8 righe, 70x37 mm
+  //   'rotolo' etichettatrice a rotolo, una per volta, 62x29 mm
+  //
+  // Le misure sono in millimetri veri: la stampa esce nella misura giusta
+  // perche' la pagina e' dichiarata in millimetri, non in pixel.
+
+  // Le misure sono in millimetri e non si indovinano: `qr` e `corpo` sono
+  // scelti perche' il codice CI STIA. Un codice tagliato a meta' su mille
+  // etichette gia' attaccate e' un magazzino da rietichettare.
+  // Il conto lo rifa' `spazioTesto`, e un collaudo lo verifica.
+  var FORMATI = {
+    a4:     { nome: 'Foglio A4 adesivo', colonne: 3, righe: 8, largo: 70, alto: 37,
+              pagina: 'A4', margine: 8, bordo: 2.5, vano: 3, qr: 26, corpo: 7, spaziatura: 0.3 },
+    rotolo: { nome: 'Rotolo 62x29',      colonne: 1, righe: 1, largo: 62, alto: 29,
+              pagina: '62mm 29mm', margine: 0, bordo: 2, vano: 2.5, qr: 22, corpo: 6, spaziatura: 0.2 }
+  };
+
+  /**
+   * Quanto spazio resta al codice, e quanto ne chiede.
+   * La larghezza di una cifra in grassetto sta intorno a 0,58 volte il corpo:
+   * basta per sapere prima di stampare se il codice ci sta.
+   */
+  function spazioTesto(f, testo) {
+    var disponibile = f.largo - (f.bordo * 2) - f.qr - f.vano;
+    var n = String(testo || 'AA 01 01').length;
+    var serve = n * 0.58 * f.corpo + (n - 1) * f.spaziatura;
+    return { disponibile: disponibile, serve: serve, ci_sta: serve <= disponibile };
+  }
+
+  function _esc(t) {
+    return String(t == null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /**
+   * Il documento da stampare.
+   *
+   * `voci` sono ubicazioni gia' pronte: { leggibile, codice, qr } dove `qr`
+   * e' l'immagine del codice, come indirizzo dati. Se manca, l'etichetta si
+   * stampa lo stesso con il solo codice: meglio un'etichetta leggibile a
+   * occhio che un buco sullo scaffale.
+   */
+  function foglioEtichette(voci, opzioni) {
+    var o = opzioni || {};
+    var f = FORMATI[o.formato] || FORMATI.a4;
+    var elenco = voci || [];
+
+    var etichette = elenco.map(function (v) {
+      var qr = v.qr
+        ? '<img class="qr" src="' + _esc(v.qr) + '" alt="">'
+        : '<div class="qr vuoto"></div>';
+      return '<div class="et">' + qr +
+             '<div class="testo">' +
+               '<div class="grande">' + _esc(v.leggibile) + '</div>' +
+               '<div class="piccolo">' + _esc(v.codice) + '</div>' +
+             '</div></div>';
+    }).join('');
+
+    // Le pagine si riempiono per righe: e' l'ordine in cui si staccano le
+    // etichette dal foglio, e quindi l'ordine in cui si cammina fra gli
+    // scaffali senza doverle cercare.
+    return '<!doctype html><html lang="it"><head><meta charset="utf-8">' +
+      '<title>Etichette ubicazioni</title><style>' +
+      '@page { size: ' + f.pagina + '; margin: ' + f.margine + 'mm; }' +
+      '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+      'body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; }' +
+      '.foglio { display: grid; grid-template-columns: repeat(' + f.colonne + ', ' + f.largo + 'mm); }' +
+      '.et { width: ' + f.largo + 'mm; height: ' + f.alto + 'mm;' +
+            ' display: flex; align-items: center; gap: ' + f.vano + 'mm; padding: ' + f.bordo + 'mm;' +
+            ' page-break-inside: avoid; break-inside: avoid; overflow: hidden; }' +
+      '.qr { width: ' + f.qr + 'mm; height: ' + f.qr + 'mm; flex: none; }' +
+      '.qr.vuoto { border: 0.4mm dashed #999; }' +
+      '.testo { min-width: 0; }' +
+      // La misura del codice grande e' la cosa che conta davvero: si deve
+      // leggere da due metri, in piedi, con lo scaffale in ombra.
+      '.grande { font-size: ' + f.corpo + 'mm; font-weight: 700; letter-spacing: ' + f.spaziatura + 'mm;' +
+                ' line-height: 1; white-space: nowrap; }' +
+      '.piccolo { font-size: 2.6mm; color: #444; margin-top: 1.5mm; font-family: monospace; }' +
+      '@media screen { body { background: #eee; padding: 10mm; }' +
+      '  .foglio { background: #fff; box-shadow: 0 0 2mm rgba(0,0,0,.3); }' +
+      '  .et { outline: 0.2mm dashed #ccc; outline-offset: -0.2mm; } }' +
+      '</style></head><body><div class="foglio">' + etichette + '</div></body></html>';
+  }
+
+  /** Quante etichette stanno in una pagina di questo formato. */
+  function etichettePerPagina(formato) {
+    var f = FORMATI[formato] || FORMATI.a4;
+    return f.colonne * f.righe;
   }
 
   // ── Il deposito ──────────────────────────────────────────────────────
@@ -333,6 +446,11 @@
     quante: quante,
     contenutoEtichetta: contenutoEtichetta,
     daLettura: daLettura,
+    eUbicazione: eUbicazione,
+    FORMATI: FORMATI,
+    foglioEtichette: foglioEtichette,
+    etichettePerPagina: etichettePerPagina,
+    spazioTesto: spazioTesto,
     nuovoDeposito: nuovoDeposito,
     ubica: ubica,
     disubica: disubica,
