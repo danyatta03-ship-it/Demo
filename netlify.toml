@@ -1,0 +1,31 @@
+# Demo del gestionale.
+# Un sito statico: nessun passo di build, nessuna dipendenza da installare.
+#
+# L'unica funzione e' il proxy per l'OCR con l'AI. Le chiavi stanno SOLO
+# nelle variabili d'ambiente di Netlify e non arrivano mai al browser:
+# e' il motivo per cui questa demo si puo' lasciare su un link pubblico.
+#
+# Per accendere l'AI:
+#   Site configuration -> Environment variables
+#   GEMINI_KEYS     = una o piu' chiavi Google AI Studio, separate da virgola
+#   ALLOWED_ORIGINS = l'indirizzo di questo sito (chiude il proxy a chi lo
+#                     chiamasse da fuori per usare le tue chiavi)
+# Poi: Deploys -> Trigger deploy.
+#
+# Senza chiave la demo funziona lo stesso: il riconoscimento resta offline.
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/gemini"
+  to = "/.netlify/functions/gemini"
+  status = 200
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
